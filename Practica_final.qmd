@@ -1,0 +1,169 @@
+---
+title: "practica_final"
+format: html
+editor: visual
+---
+
+Vamos a utilizar el dataset de semillas que se encuentra aquí: https://archive.ics.uci.edu/ml/datasets/seeds#
+
+Primero vamos a descargarnos el dataset con el siguiente comando:
+
+```{r}
+library(tidyverse)
+df_seeds <- read.table('https://archive.ics.uci.edu/ml/machine-learning-databases/00236/seeds_dataset.txt', col.names =c('area','perimetro','compacto','longitud','anchura','coeficient.asimetria','longitud.ranura','tipo'))
+
+```
+
+#### PREGUNTA 1 (0.5pt)
+
+¿Cuantas filas y cuantas columnas tiene el dataframe df_seeds?
+
+**Respuesta**:
+
+```{r}
+paste("El dataset df_seeds tiene:",  ncol(df_seeds), "columnas", paste("y"), nrow(df_seeds), "filas")
+```
+
+#### PREGUNTA 2 (0.5pt)
+
+Vamos a convertir en factor la columna tipo. Vamos a reemplazar los números por su correspondiente etiqueta (label). La correspondencia entre el código y el tipo es:
+
+-   1 - Kama
+-   2 - Rosa
+-   3 - Canadian
+
+Convierte en factor la columna tipo, respetando las etiquetas:
+
+**Respuesta**:
+
+```{r}
+df_seeds$tipo
+df_seeds$tipo_nombre<-ifelse(df_seeds$tipo == 1, "Kama", ifelse(df_seeds$tipo == 2, "Rosa", "Canadian"))
+df_seeds$tipo_nombre
+```
+
+#### PREGUNTA 3 (1pt)
+
+¿Cual es la media del area de cada uno de los tipos?
+
+**Respuesta**
+
+```{r}
+#Esta es la solucion que habia propuesto yo, despues de ver la ultima clase, he decidido hacer también la otra solucion, dejo esta, aunque como ya dijiste en clase da a ver lo poco que controlo en este tema.... ;)
+Seeds_area <- df_seeds[ , c("area", "tipo", "tipo_nombre")]
+Kama <- Seeds_area[Seeds_area$tipo=='1', ]
+Rosa <- Seeds_area[Seeds_area$tipo == '2', ]
+Canadian <- Seeds_area[Seeds_area$tipo == '3', ]
+paste("La media del area de Kama es:", mean(Kama$area))
+paste("La media del area de Rosa es:", mean(Rosa$area))
+paste("La media del area de Canadian es:", mean(Canadian$area))
+
+```
+
+```{r}
+df_seeds |> group_by(tipo_nombre) |> summarise(area_media = mean(area))
+```
+
+#### PREGUNTA 4 (0.5pt)
+
+¿Como se llama el siguiente tipo de gráfico?. ¿Qué representa la línea del centro de la caja?
+
+```{r}
+ggplot(df_seeds, aes(x=tipo, y=area)) + geom_boxplot()
+```
+
+**Respuesta**: '' Es un 'diagrama de caja o diagrama de caja y bigotes', 'Boxplot', o 'gráfico de bigotes', y la línea del centro de la caja representa la mediana"
+
+#### PREGUNTA 5 (1.5pt)
+
+¿Como pintarías un diagrama de puntos (o scatterplot) con ggplot con las siguientes características? - En el eje X la variable compacto - En el eje Y la variable area - Cada tipo de semilla debería tener un color diferente
+
+**Respuesta**:
+
+```{r}
+x1 <- df_seeds$compacto
+x2 <- df_seeds$area
+tipo <- df_seeds$tipo
+ggplot(df_seeds, aes(x = x1, y = x2, color= tipo))+ geom_point(color = tipo) + xlab("compacto")+ ylab("area")
+
+```
+
+#### PREGUNTA 6 (0.5pt)
+
+¿Qué hace la siguiente línea?:
+
+```{r}
+df_seeds |> mutate(is_kama = tipo =='Kama') -> df_seeds
+df_seeds
+```
+
+**Respuesta**: '' Crea una nueva columna llamada is_kama en el dataset df_seeds, esta columna tiene valores booleanos 'TRUE' (si la columna tipo es igual a kama) o 'FALSE' (si la columna tipo no es igual a kama)
+
+#### PREGUNTA 7 (1.5pt)
+
+Vamos a dividir el conjunto de datos en test y training porque vamos a entrenar un modelo que me permita diferenciar si una semilla es de tipo Kama o no. ¿Por qué es aconsejable dividir el dataset en los grupos de train y test?
+
+```{r}
+df_seeds |> mutate(tipo_kama = tipo =='1') -> df_seeds
+df_seeds$tipo_kama <- factor(df_seeds$tipo_kama, levels = c(TRUE, FALSE), labels = (c("Si", "No")))
+set.seed(123) # Este set.seed hace que a todos nos generen los mismos número aleatorios
+idx <- sample(1:nrow(df_seeds), 0.7*nrow(df_seeds))
+df_seeds_train <- df_seeds[idx,]
+df_seeds_test <- df_seeds[-idx,]
+```
+
+**Respuesta**: '' Es aconsejable dividir el conjunto de datos para evitar el sobreajuste del modelo, proporcionarle una mejor capacidad de estimación a la hora de generalizar datos nuevos y poder evaluar la capacidad predictiva del mismo."
+
+#### PREGUNTA 8 (1pt)
+
+Vamos a crear un modelo para realizar una clasificación binaria, donde le pasaremos como entrada las columnas: area, perimetro, compacto, longitud, coeficient.asimetria y longitud.ranura
+
+¿Qué tipo de algoritmo o modelo debería usar?
+
+**Respuesta**: '' Debido a que se quiere realizar una clasificación binaria, según los contenidos vistos en clase, se debería usar el algoritmo de "Regresión Logística", ya que es simple y fácil de interpretar, y funciona bien para dicha clasificación, calculando la probabilidad de que un item pertenezca o no a una clase. Aunque también se podrían utilizar "Máquinas de Vectores de Soporte (SVM) " o "Árboles de decisión", he contestado "Regresión Logística" puesto que es lo que hemos visto en clase
+
+#### PREGUNTA 9 (1pt)
+
+Crea un modelo que me permita clasificar si una semilla es de tipo Kama o no con las siguientes columnas: area, perimetro, compacto, longitud, coeficient.asimetria, longitud.ranura
+
+**Respuesta**:
+
+```{r}
+library(glmnet) 
+model<- glm(df_seeds_train, formula = tipo_kama ~ area + perimetro + compacto + longitud + coeficient.asimetria + longitud.ranura, family = binomial())
+```
+
+#### PREGUNTA 10 (1pt)
+
+Si usamos un umbral de 0 en la salida del modelo (lo que equivale a probabilidad de 0.5 cuando usamos el predict con type='response') ¿Cuáles son los valores de precisión y exhausitividad?
+
+**Respuesta**.
+
+```{r}
+#str(df_seeds)
+cf<- caret::confusionMatrix(factor(predict(model, df_seeds_test)> 0, labels = c("Si", "No")), reference = df_seeds_test$tipo_kama)
+cf$table
+```
+
+```{r}
+paste("La precisión del modelo para un umbral de 0 es", cf$overall["Accuracy"])
+paste ("la exhaustividad del modelo para un umbral de O es", cf$byClass["Sensitivity"])
+```
+
+#### PREGUNTA 11 (1.5pt)
+
+¿Qué están haciendo las siguientes líneas?
+
+```{r}
+set.seed(123)
+cl<-df_seeds |> select(area,perimetro,compacto,longitud,anchura,coeficient.asimetria,longitud.ranura) |> kmeans(3)
+table(real=df_seeds$tipo,cluster=cl$cluster)
+```
+
+**Respuesta**: '' La primera línea set.seeds establece una semilla aleatoria para que los resultados sean los mismos cada vez que se ejecute el código.
+
+La segunda línea, selecciona las columnas escritas entre paréntesis de df_seeds y aplica el algoritmo kmeans para agrupar los datos en 3 clusters y guarda el resultado en una variable llamada cl.
+
+La tercera línea crea una tabla que muestra la relación entre la variable tipo de df_seeds que indica si una semilla es de tipo Kama o no, y los clusters generados por el algoritmo, mostrando cuantas observaciones pertenecen a cada combinación de tipo y cluster.
+
+En resumen, con el código escrito, se realiza un análisis de agrupamiento, evaluando cómo los grupos creados por kmeans se relacionan con la variable tipo del dataset original, para poder ver así, si hay alguna estructura que se correlacione con el tipo de semilla."
