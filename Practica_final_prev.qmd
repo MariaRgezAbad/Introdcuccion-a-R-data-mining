@@ -37,10 +37,9 @@ Convierte en factor la columna tipo, respetando las etiquetas:
 **Respuesta**:
 
 ```{r}
-
-tipos <- c("Kama", "Rosa", "Canadian")
-df_seeds$tipo <- factor(df_seeds$tipo, levels = c(1, 2, 3), labels = tipos)
-head(df_seeds)
+df_seeds$tipo
+df_seeds$tipo_nombre<-ifelse(df_seeds$tipo == 1, "Kama", ifelse(df_seeds$tipo == 2, "Rosa", "Canadian"))
+df_seeds$tipo_nombre
 ```
 
 #### PREGUNTA 3 (1pt)
@@ -51,10 +50,10 @@ head(df_seeds)
 
 ```{r}
 #Esta es la solucion que habia propuesto yo, despues de ver la ultima clase, he decidido hacer también la otra solucion, dejo esta, aunque como ya dijiste en clase da a ver lo poco que controlo en este tema.... ;)
-Seeds_area <- df_seeds[ , c("area", "tipo", "tipo")]
-Kama <- Seeds_area[Seeds_area$tipo=='Kama', ]
-Rosa <- Seeds_area[Seeds_area$tipo == 'Rosa', ]
-Canadian <- Seeds_area[Seeds_area$tipo == 'Canadian', ]
+Seeds_area <- df_seeds[ , c("area", "tipo", "tipo_nombre")]
+Kama <- Seeds_area[Seeds_area$tipo=='1', ]
+Rosa <- Seeds_area[Seeds_area$tipo == '2', ]
+Canadian <- Seeds_area[Seeds_area$tipo == '3', ]
 paste("La media del area de Kama es:", mean(Kama$area))
 paste("La media del area de Rosa es:", mean(Rosa$area))
 paste("La media del area de Canadian es:", mean(Canadian$area))
@@ -62,7 +61,7 @@ paste("La media del area de Canadian es:", mean(Canadian$area))
 ```
 
 ```{r}
-df_seeds |> group_by(tipo) |> summarise(area_media = mean(area))
+df_seeds |> group_by(tipo_nombre) |> summarise(area_media = mean(area))
 ```
 
 #### PREGUNTA 4 (0.5pt)
@@ -82,8 +81,10 @@ ggplot(df_seeds, aes(x=tipo, y=area)) + geom_boxplot()
 **Respuesta**:
 
 ```{r}
-ggplot(df_seeds, aes(x = compacto, y = area, color = tipo)) +
-  geom_point() + xlab("compacto")+ ylab("area")
+x1 <- df_seeds$compacto
+x2 <- df_seeds$area
+tipo <- df_seeds$tipo
+ggplot(df_seeds, aes(x = x1, y = x2, color= tipo))+ geom_point(color = tipo) + xlab("compacto")+ ylab("area")
 
 ```
 
@@ -103,6 +104,8 @@ df_seeds
 Vamos a dividir el conjunto de datos en test y training porque vamos a entrenar un modelo que me permita diferenciar si una semilla es de tipo Kama o no. ¿Por qué es aconsejable dividir el dataset en los grupos de train y test?
 
 ```{r}
+df_seeds |> mutate(tipo_kama = tipo =='1') -> df_seeds
+df_seeds$tipo_kama <- factor(df_seeds$tipo_kama, levels = c(TRUE, FALSE), labels = (c("Si", "No")))
 set.seed(123) # Este set.seed hace que a todos nos generen los mismos número aleatorios
 idx <- sample(1:nrow(df_seeds), 0.7*nrow(df_seeds))
 df_seeds_train <- df_seeds[idx,]
@@ -127,8 +130,7 @@ Crea un modelo que me permita clasificar si una semilla es de tipo Kama o no con
 
 ```{r}
 library(glmnet) 
-model<- glm(df_seeds_train, formula = tipo ~ area + perimetro + compacto + longitud + coeficient.asimetria + longitud.ranura, family = "binomial")
-summary(model)
+model<- glm(df_seeds_train, formula = tipo_kama ~ area + perimetro + compacto + longitud + coeficient.asimetria + longitud.ranura, family = binomial())
 ```
 
 #### PREGUNTA 10 (1pt)
@@ -138,21 +140,14 @@ Si usamos un umbral de 0 en la salida del modelo (lo que equivale a probabilidad
 **Respuesta**.
 
 ```{r}
-
-predicted_probs <- predict(model, type = "response")
-predicted_labels <- ifelse(predicted_probs >= 0.5, 1, 0)
-conf_matrix <- table(predicted_labels, df_seeds_train$tipo)
-precision <- conf_matrix[2, 2] / sum(conf_matrix[, 2])
-exhaustividad <- conf_matrix[2, 2] / sum(conf_matrix[2, ])
-
-precision
-exhaustividad
-
+#str(df_seeds)
+cf<- caret::confusionMatrix(factor(predict(model, df_seeds_test)> 0, labels = c("Si", "No")), reference = df_seeds_test$tipo_kama)
+cf$table
 ```
 
 ```{r}
-paste("La precisión del modelo para un umbral de 0 es", precision)
-paste ("la exhaustividad del modelo para un umbral de O es", exhaustividad)
+paste("La precisión del modelo para un umbral de 0 es", cf$overall["Accuracy"])
+paste ("la exhaustividad del modelo para un umbral de O es", cf$byClass["Sensitivity"])
 ```
 
 #### PREGUNTA 11 (1.5pt)
